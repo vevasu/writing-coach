@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Writing Coach</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f7f5f0; --bg2: #eeebe3; --card: #ffffff;
+  --border: rgba(0,0,0,0.09); --border2: rgba(0,0,0,0.15);
+  --text: #1a1916; --text2: #6b6960; --text3: #a09e96;
+  --accent: #2a5caa; --accent-light: #e6edf8;
+  --red: #c0392b; --red-light: #fcecea;
+  --amber: #b8740a; --amber-light: #fef3dc;
+  --green: #1a7a4a; --green-light: #e6f5ed;
+  --purple: #6b3fa0; --purple-light: #f0ebfb;
+  --font: 'Georgia', 'Times New Roman', serif;
+  --sans: system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1916; --bg2: #222018; --card: #28261f;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #e8e5db; --text2: #9c9a90; --text3: #6b6960;
+    --accent: #5b8ddb; --accent-light: #192338;
+    --red: #e05a4e; --red-light: #2d1714;
+    --amber: #e09a2e; --amber-light: #2c1e08;
+    --green: #38b872; --green-light: #0d2018;
+    --purple: #9e6cd4; --purple-light: #1d1230;
+  }
+}
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+.header { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark { width: 30px; height: 30px; background: var(--accent); border-radius: 7px; display: grid; place-items: center; color: #fff; font-size: 15px; }
+.logo-name { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-tag { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.hdr-btns { display: flex; gap: 8px; }
+.ghost-btn { font-size: 12px; color: var(--text2); background: none; border: 1px solid var(--border2); border-radius: 7px; cursor: pointer; padding: 6px 12px; transition: background .15s; }
+.ghost-btn:hover { background: var(--bg2); }
+
+.workspace { flex: 1; display: flex; min-height: 0; }
+.canvas-pane { flex: 1; display: flex; flex-direction: column; padding: 28px 32px; gap: 20px; overflow-y: auto; }
+.results-pane { width: 0; overflow: hidden; transition: width .3s ease; border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.results-pane.open { width: 400px; }
+
+/* ★ Hero writing canvas ★ */
+.writing-canvas { background: var(--card); border: 1.5px solid var(--border2); border-radius: 16px; box-shadow: 0 2px 20px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: border-color .2s, box-shadow .2s; }
+.writing-canvas:focus-within { border-color: var(--accent); box-shadow: 0 4px 28px rgba(42,92,170,0.1), 0 0 0 3px rgba(42,92,170,0.07); }
+
+.canvas-toolbar { padding: 12px 20px 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.canvas-label { font-size: 12px; font-weight: 600; color: var(--text3); letter-spacing: 0.4px; text-transform: uppercase; }
+.canvas-meta { display: flex; align-items: center; gap: 12px; }
+.wc-pill { font-size: 12px; color: var(--text3); background: var(--bg2); border-radius: 20px; padding: 3px 10px; }
+.view-toggle { display: flex; gap: 1px; background: var(--bg2); border-radius: 6px; padding: 2px; }
+.vtab { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 4px; cursor: pointer; color: var(--text3); border: none; background: none; transition: all .15s; }
+.vtab.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+#editor { width: 100%; min-height: 380px; max-height: 560px; padding: 26px 30px; font-family: var(--font); font-size: 17px; line-height: 1.85; background: transparent; border: none; outline: none; color: var(--text); resize: vertical; }
+#editor::placeholder { color: var(--text3); font-style: italic; font-size: 16px; line-height: 1.7; }
+
+#highlighted-view { display: none; width: 100%; min-height: 380px; padding: 26px 30px; font-family: var(--font); font-size: 17px; line-height: 1.85; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.hl-gram    { border-bottom: 2.5px solid var(--red);    cursor: pointer; }
+.hl-punct   { border-bottom: 2.5px dotted var(--red);   cursor: pointer; }
+.hl-clarity { border-bottom: 2.5px solid var(--amber);  cursor: pointer; }
+.hl-style   { border-bottom: 2.5px solid var(--purple); cursor: pointer; }
+.hl-struct  { border-bottom: 2.5px solid var(--accent); cursor: pointer; }
+
+.canvas-legend { display: none; gap: 16px; flex-wrap: wrap; padding: 8px 20px 10px; border-top: 1px solid var(--border); }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+.legend-line { width: 18px; height: 2px; border-radius: 1px; }
+
+.canvas-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.canvas-hint { font-size: 12px; color: var(--text3); }
+
+.analyze-btn { padding: 10px 24px; background: var(--accent); color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity .15s, transform .1s; box-shadow: 0 2px 8px rgba(42,92,170,0.25); }
+.analyze-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Score */
+.score-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; display: none; }
+.score-top { display: flex; align-items: center; gap: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.big-num { font-size: 48px; font-weight: 800; line-height: 1; }
+.score-meta { flex: 1; }
+.score-lbl { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.bar-row { height: 6px; background: var(--bg2); border-radius: 3px; margin-top: 6px; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .9s ease; }
+.score-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.score-cell { text-align: center; }
+.score-n { font-size: 20px; font-weight: 700; }
+.score-d { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.cell-bar { height: 4px; background: var(--bg2); border-radius: 2px; margin-top: 4px; }
+.cell-fill { height: 100%; border-radius: 2px; transition: width .9s ease; }
+
+/* Issues */
+.issues-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: none; }
+.card-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-size: 13px; font-weight: 600; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.issue-row { padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.issue-row:last-child { border-bottom: none; }
+.issue-top { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 5px; }
+.issue-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; margin-top: 1px; }
+.issue-desc { font-size: 13px; line-height: 1.5; }
+.issue-was { font-size: 12px; color: var(--text2); font-family: var(--font); font-style: italic; margin-bottom: 3px; }
+.issue-was s { color: var(--red); }
+.issue-fix { font-size: 12px; color: var(--green); font-family: var(--font); }
+.tip-box { margin: 10px 16px 12px; background: var(--accent-light); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; display: none; }
+.tip-text { font-size: 13px; color: var(--accent); line-height: 1.6; }
+
+/* Rewrite */
+.rewrite-card { background: var(--green-light); border: 1px solid var(--green); border-radius: 12px; padding: 14px 18px; display: none; }
+.rewrite-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--green); margin-bottom: 8px; }
+.rewrite-body { font-family: var(--font); font-size: 14px; line-height: 1.8; color: var(--text); }
+.copy-link { font-size: 11px; color: var(--accent); background: none; border: none; cursor: pointer; margin-top: 8px; display: block; }
+.copy-link:hover { text-decoration: underline; }
+
+/* Right pane */
+.pane-tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; background: var(--card); flex-shrink: 0; }
+.ptab { padding: 11px 14px; font-size: 13px; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
+.ptab.active { color: var(--accent); border-color: var(--accent); font-weight: 500; }
+.ptab:hover:not(.active) { color: var(--text2); }
+.pane-body { overflow-y: auto; flex: 1; }
+.psection { padding: 16px; border-bottom: 1px solid var(--border); }
+.psection-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); margin-bottom: 10px; }
+.feedback-text { font-size: 13px; color: var(--text2); line-height: 1.7; }
+.exercise-item { background: var(--bg2); border-radius: 8px; padding: 11px 13px; margin-bottom: 10px; border: 1px solid transparent; }
+.exercise-item:hover { border-color: var(--accent); }
+.exercise-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+.exercise-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.exercise-area { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 5px; }
+.pattern-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.pattern-lbl { font-size: 12px; color: var(--text2); min-width: 110px; }
+.pattern-bg { flex: 1; height: 5px; background: var(--bg2); border-radius: 3px; }
+.pattern-fg { height: 100%; border-radius: 3px; }
+.pattern-n { font-size: 12px; font-weight: 600; min-width: 18px; text-align: right; }
+.empty-pane { padding: 40px 20px; text-align: center; color: var(--text3); }
+.empty-icon { font-size: 32px; margin-bottom: 10px; opacity: .45; }
+.empty-lbl { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 4px; }
+.empty-sub { font-size: 12px; }
+
+/* Tooltip */
+#hlTooltip { position: fixed; z-index: 9999; max-width: 280px; display: none; background: var(--card); border: 1px solid var(--border2); border-radius: 10px; padding: 11px 14px; box-shadow: 0 6px 24px rgba(0,0,0,0.13); pointer-events: none; }
+.tip-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+.tip-desc { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 5px; }
+.tip-fix  { font-size: 12px; color: var(--green); font-family: var(--font); }
+
+.bg-gram   { background: var(--red-light);    color: var(--red); }
+.bg-punct  { background: var(--red-light);    color: var(--red); }
+.bg-clar   { background: var(--amber-light);  color: var(--amber); }
+.bg-style  { background: var(--purple-light); color: var(--purple); }
+.bg-struct { background: var(--accent-light); color: var(--accent); }
+.ex-gram   { background: var(--red-light);    color: var(--red); }
+.ex-clarity{ background: var(--amber-light);  color: var(--amber); }
+.ex-style  { background: var(--purple-light); color: var(--purple); }
+.ex-struct { background: var(--accent-light); color: var(--accent); }
+
+@media (max-width: 860px) {
+  .workspace { flex-direction: column; }
+  .results-pane.open { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  .canvas-pane { padding: 16px; }
+}
+
+/* ── API key modal ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-backdrop.hidden { display: none; }
+.modal-box {
+  background: var(--card); border-radius: 16px;
+  padding: 32px 28px; max-width: 440px; width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+}
+.modal-icon { font-size: 30px; margin-bottom: 14px; }
+.modal-title { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+.modal-sub { font-size: 13px; color: var(--text2); line-height: 1.65; margin-bottom: 22px; }
+.modal-sub a { color: var(--accent); text-decoration: none; }
+.modal-sub a:hover { text-decoration: underline; }
+.modal-field-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+.modal-input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--border2);
+  border-radius: 9px; font-size: 14px; font-family: monospace;
+  background: var(--bg); color: var(--text); outline: none;
+  margin-bottom: 6px; transition: border-color .2s;
+}
+.modal-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(42,92,170,0.1); }
+.modal-hint { font-size: 11px; color: var(--text3); margin-bottom: 20px; }
+.modal-hint a { color: var(--accent); text-decoration: none; }
+.modal-hint a:hover { text-decoration: underline; }
+.modal-btn {
+  width: 100%; padding: 11px; background: var(--accent); color: #fff;
+  border: none; border-radius: 9px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s;
+}
+.modal-btn:hover { opacity: .88; }
+.modal-error { font-size: 12px; color: var(--red); margin-top: 8px; min-height: 16px; }
+
+/* key badge in header */
+.key-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--green); background: var(--green-light);
+  border: 1px solid var(--green); border-radius: 20px; padding: 3px 10px;
+  cursor: pointer; transition: opacity .15s;
+}
+.key-badge:hover { opacity: .8; }
+.key-badge.unset { color: var(--amber); background: var(--amber-light); border-color: var(--amber); }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">✍</div>
+    <div>
+      <div class="logo-name">Writing Coach</div>
+      <div class="logo-tag">AI-powered analysis</div>
+    </div>
+  </div>
+  <div class="hdr-btns">
+    <div class="key-badge unset" id="keyBadge" onclick="showModal()" title="Click to set API key">
+      <span id="keyBadgeIcon">⚠</span>
+      <span id="keyBadgeText">Set API key</span>
+    </div>
+    <button class="ghost-btn" onclick="clearAll()">Clear</button>
+    <button class="ghost-btn" onclick="loadSample()">Load sample</button>
+  </div>
+</div>
+
+<!-- API key modal -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-box">
+    <div class="modal-icon">🔑</div>
+    <div class="modal-title">Enter your Anthropic API key</div>
+    <div class="modal-sub">
+      This app uses Claude to analyze your writing. Your key is stored only in your browser session — it's never saved to any server and is cleared when you close the tab.
+    </div>
+    <div class="modal-field-label">API Key</div>
+    <input class="modal-input" id="modalKeyInput" type="password" placeholder="sk-ant-api03-..." spellcheck="false" onkeydown="if(event.key==='Enter') submitKey()" />
+    <div class="modal-hint">
+      Get your key at <a href="https://console.anthropic.com/keys" target="_blank">console.anthropic.com/keys</a>. 
+      Usage costs ~$0.01 per analysis.
+    </div>
+    <button class="modal-btn" onclick="submitKey()">Start analyzing →</button>
+    <div class="modal-error" id="modalError"></div>
+  </div>
+</div>
+
+<div class="workspace">
+  <div class="canvas-pane" id="canvasPane">
+
+    <!-- ★ BIG WRITING CANVAS ★ -->
+    <div class="writing-canvas">
+      <div class="canvas-toolbar">
+        <span class="canvas-label">Your Writing</span>
+        <div class="canvas-meta">
+          <span class="wc-pill" id="wc">0 words</span>
+          <div class="view-toggle" id="viewToggle" style="display:none">
+            <button class="vtab active" id="vtab-write" onclick="switchView('write')">Write</button>
+            <button class="vtab" id="vtab-hl" onclick="switchView('highlight')">Highlighted ✦</button>
+          </div>
+        </div>
+      </div>
+
+      <textarea id="editor"
+        placeholder="Type freely or paste your text here — an email, paragraph, article section, report, anything up to 2,000 words. No uploading needed; everything stays right in this window."
+        oninput="onType()"></textarea>
+
+      <div id="highlighted-view"></div>
+
+      <div class="canvas-legend" id="canvasLegend">
+        <div class="legend-item"><div class="legend-line" style="background:var(--red)"></div>Grammar</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--red);opacity:.6"></div>Punctuation</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--amber)"></div>Clarity</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--purple)"></div>Style</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--accent)"></div>Structure</div>
+      </div>
+
+      <div class="canvas-footer">
+        <span class="canvas-hint" id="canvasHint">Type or paste — then click Analyze</span>
+        <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+          <span id="btnIcon">✦</span><span id="btnLbl"> Analyze</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Score -->
+    <div class="score-card" id="scoreCard">
+      <div class="score-top">
+        <div class="big-num" id="bigNum">—</div>
+        <div class="score-meta">
+          <div class="score-lbl" id="scoreLbl">Overall quality</div>
+          <div class="bar-row"><div class="bar-fill" id="scoreBar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="score-grid" id="scoreGrid"></div>
+    </div>
+
+    <!-- Issues -->
+    <div class="issues-card" id="issuesCard">
+      <div class="card-head">
+        <span class="card-title">Issues found</span>
+        <span class="badge bg-gram" id="issueBadge">0</span>
+      </div>
+      <div id="issuesList"></div>
+      <div class="tip-box" id="tipBox"><div class="tip-text" id="tipText"></div></div>
+    </div>
+
+    <!-- Rewrite -->
+    <div class="rewrite-card" id="rewriteCard">
+      <div class="rewrite-lbl">✓ Suggested rewrite</div>
+      <div class="rewrite-body" id="rewriteBody"></div>
+      <button class="copy-link" onclick="copyRewrite()">Copy rewrite →</button>
+    </div>
+
+  </div>
+
+  <!-- Right: tabbed insights -->
+  <div class="results-pane" id="resultsPane">
+    <div class="pane-tabs">
+      <div class="ptab active" id="pt-insights" onclick="switchTab('insights')">Insights</div>
+      <div class="ptab" id="pt-practice" onclick="switchTab('practice')">Practice</div>
+      <div class="ptab" id="pt-patterns" onclick="switchTab('patterns')">Patterns</div>
+    </div>
+    <div class="pane-body">
+      <div id="pane-insights">
+        <div class="empty-pane" id="insightsEmpty">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-lbl">No analysis yet</div>
+          <div class="empty-sub">Analyze your writing to see feedback here.</div>
+        </div>
+        <div id="insightsContent" style="display:none">
+          <div class="psection"><div class="psection-title">Overall feedback</div><div class="feedback-text" id="feedbackText"></div></div>
+          <div class="psection"><div class="psection-title">Style &amp; tone</div><div class="feedback-text" id="styleText"></div></div>
+        </div>
+      </div>
+      <div id="pane-practice" style="display:none">
+        <div class="empty-pane" id="practiceEmpty">
+          <div class="empty-icon">📝</div>
+          <div class="empty-lbl">Analyze first</div>
+          <div class="empty-sub">Exercises are tailored to your weak areas.</div>
+        </div>
+        <div id="practiceContent" style="display:none;padding:16px"></div>
+      </div>
+      <div id="pane-patterns" style="display:none">
+        <div class="psection">
+          <div class="psection-title">Recurring mistakes</div>
+          <div id="patternsList"><div style="font-size:13px;color:var(--text3)">Patterns appear after multiple analyses.</div></div>
+        </div>
+        <div class="psection" id="trendSection" style="display:none">
+          <div class="psection-title">Score history</div>
+          <div id="trendList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="hlTooltip">
+  <div class="tip-type" id="hlType"></div>
+  <div class="tip-desc" id="hlDesc"></div>
+  <div class="tip-fix"  id="hlFix"></div>
+</div>
+
+<script>
+const SAMPLE = `The meeting yesterday was very important and we discussed about many things that was relevant to our project. Each of the team members have shared their ideas, but however some of them was not clear enough for everyone to understand. The manager, he pointed out that we need to more better organize our thoughts before presenting them. Going forward, its essential that we make sure to always double-check our work before the submission of it to the client. The team need to also improve their communication skills in order to achieve success in future projects.`;
+
+let lastIssues = [], allPatterns = {}, sessionHistory = [];
+
+/* ── API key management ── */
+function getKey() { return sessionStorage.getItem('wc_api_key') || ''; }
+
+function showModal() {
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  document.getElementById('modalKeyInput').value = getKey();
+  document.getElementById('modalError').textContent = '';
+  setTimeout(() => document.getElementById('modalKeyInput').focus(), 50);
+}
+
+function submitKey() {
+  const val = document.getElementById('modalKeyInput').value.trim();
+  if (!val.startsWith('sk-ant-')) {
+    document.getElementById('modalError').textContent = 'Key should start with sk-ant- — check and try again.';
+    return;
+  }
+  sessionStorage.setItem('wc_api_key', val);
+  document.getElementById('modalBackdrop').classList.add('hidden');
+  updateKeyBadge();
+}
+
+function updateKeyBadge() {
+  const key = getKey();
+  const badge = document.getElementById('keyBadge');
+  const icon  = document.getElementById('keyBadgeIcon');
+  const text  = document.getElementById('keyBadgeText');
+  if (key) {
+    badge.classList.remove('unset');
+    icon.textContent  = '✓';
+    text.textContent  = 'API key set';
+    badge.title = 'Key active — click to change';
+  } else {
+    badge.classList.add('unset');
+    icon.textContent  = '⚠';
+    text.textContent  = 'Set API key';
+    badge.title = 'Click to set API key';
+  }
+}
+
+/* ── Utility ── */
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function scoreColor(s) { return s>=8?'var(--green)':s>=6?'var(--accent)':s>=4?'var(--amber)':'var(--red)'; }
+function scoreLabel(s) { return s>=9?'Excellent — publication-ready':s>=7.5?'Good — minor polish needed':s>=6?'Fair — improvements needed':s>=4?'Needs work — significant issues':'Needs significant revision'; }
+
+function loadSample() { document.getElementById('editor').value = SAMPLE; onType(); }
+
+function clearAll() {
+  document.getElementById('editor').value = ''; onType();
+  ['scoreCard','issuesCard','rewriteCard'].forEach(id => document.getElementById(id).style.display='none');
+  document.getElementById('viewToggle').style.display = 'none';
+  document.getElementById('insightsContent').style.display = 'none';
+  document.getElementById('insightsEmpty').style.display = 'block';
+  document.getElementById('practiceContent').style.display = 'none';
+  document.getElementById('practiceEmpty').style.display = 'block';
+  document.getElementById('resultsPane').classList.remove('open');
+  switchView('write');
+}
+
+function onType() {
+  const t = document.getElementById('editor').value.trim();
+  const w = t ? t.split(/\s+/).length : 0;
+  document.getElementById('wc').textContent = w+' word'+(w!==1?'s':'');
+  document.getElementById('canvasHint').textContent = w>0 ? `${w} word${w!==1?'s':''} — click Analyze when ready` : 'Type or paste — then click Analyze';
+}
+
+function switchView(mode) {
+  const ta=document.getElementById('editor'), hv=document.getElementById('highlighted-view'), lg=document.getElementById('canvasLegend');
+  document.getElementById('vtab-write').classList.toggle('active', mode==='write');
+  document.getElementById('vtab-hl').classList.toggle('active', mode==='highlight');
+  if (mode==='write') { ta.style.display='block'; hv.style.display='none'; lg.style.display='none'; }
+  else { ta.style.display='none'; hv.style.display='block'; lg.style.display='flex'; buildHighlights(ta.value, lastIssues); }
+}
+
+function buildHighlights(text, issues) {
+  const hv = document.getElementById('highlighted-view');
+  if (!issues.length) { hv.textContent = text; return; }
+  const cls = {grammar:'hl-gram',punctuation:'hl-punct',clarity:'hl-clarity',style:'hl-style',structure:'hl-struct'};
+  let spans=[];
+  issues.forEach((iss,i) => {
+    if (!iss.original) return;
+    const idx = text.indexOf(iss.original);
+    if (idx===-1) return;
+    if (!spans.some(s => idx<s.e && idx+iss.original.length>s.s))
+      spans.push({s:idx, e:idx+iss.original.length, iss, i});
+  });
+  spans.sort((a,b)=>a.s-b.s);
+  let html='', cur=0;
+  spans.forEach(sp => {
+    if (sp.s>cur) html+=esc(text.slice(cur,sp.s));
+    const c=cls[sp.iss.type]||'hl-struct';
+    html+=`<span class="${c}" onmouseenter="showTip(event,${sp.i})" onmouseleave="hideTip()">${esc(text.slice(sp.s,sp.e))}</span>`;
+    cur=sp.e;
+  });
+  if (cur<text.length) html+=esc(text.slice(cur));
+  hv.innerHTML=html;
+}
+
+function showTip(e, i) {
+  const iss=lastIssues[i]; if(!iss) return;
+  const colors={grammar:'var(--red)',punctuation:'var(--red)',clarity:'var(--amber)',style:'var(--purple)',structure:'var(--accent)'};
+  const labels={grammar:'Grammar',punctuation:'Punctuation',clarity:'Clarity',style:'Style',structure:'Structure'};
+  document.getElementById('hlType').textContent=labels[iss.type]||iss.type;
+  document.getElementById('hlType').style.color=colors[iss.type]||'var(--accent)';
+  document.getElementById('hlDesc').textContent=iss.description;
+  document.getElementById('hlFix').textContent=iss.fix?'→ '+iss.fix:'';
+  const tip=document.getElementById('hlTooltip');
+  tip.style.display='block';
+  tip.style.left=Math.min(e.clientX+14,window.innerWidth-295)+'px';
+  tip.style.top=(e.clientY+22)+'px';
+}
+function hideTip() { document.getElementById('hlTooltip').style.display='none'; }
+
+function switchTab(name) {
+  ['insights','practice','patterns'].forEach(t => {
+    document.getElementById('pane-'+t).style.display = t===name?'block':'none';
+    document.getElementById('pt-'+t).classList.toggle('active', t===name);
+  });
+}
+
+async function analyze() {
+  const text = document.getElementById('editor').value.trim();
+  if (!text) return;
+
+  const key = getKey();
+  if (!key) { showModal(); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  document.getElementById('canvasHint').style.color = '';
+  document.getElementById('btnIcon').className='spin';
+  document.getElementById('btnIcon').textContent='⟳';
+  document.getElementById('btnLbl').textContent=' Analyzing…';
+
+  const prompt = `You are an expert writing coach. Analyze the text and return ONLY valid JSON — no preamble, no markdown fences.
+
+TEXT:
+"""
+${text}
+"""
+
+Return exactly:
+{
+  "scores": { "overall": <0-10 float>, "grammar": <0-10 float>, "clarity": <0-10 float>, "style": <0-10 float>, "flow": <0-10 float> },
+  "issues": [ { "type": "grammar|punctuation|clarity|style|structure", "description": "<concise explanation>", "original": "<exact phrase from text, max 10 words>", "fix": "<corrected version>" } ],
+  "feedback": "<2-3 sentence overall assessment>",
+  "style_advice": "<2-3 sentences on style, tone, voice>",
+  "main_suggestion": "<single most impactful suggestion>",
+  "rewrite": "<full rewritten version with all issues fixed>",
+  "exercises": [ { "title": "<title>", "description": "<what to practice>", "area": "grammar|clarity|style|structure" } ],
+  "top_patterns": ["<pattern1>","<pattern2>","<pattern3>"]
+}
+Up to 8 issues. Be precise — exact phrases only. 3 exercises targeting weakest areas.`;
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({model:"claude-haiku-4-5-20251001", max_tokens:2000, messages:[{role:"user",content:prompt}]})
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      if (resp.status === 401) {
+        sessionStorage.removeItem('wc_api_key');
+        updateKeyBadge();
+        showModal();
+        document.getElementById('modalError').textContent = 'Invalid API key — please check and re-enter.';
+        btn.disabled=false;
+        document.getElementById('btnIcon').className='';
+        document.getElementById('btnIcon').textContent='✦';
+        document.getElementById('btnLbl').textContent=' Analyze';
+        return;
+      }
+      throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    const raw = data.content.map(c=>c.text||'').join('');
+    const clean = raw.replace(/```json[\s\S]*?```|```[\s\S]*?```/g, m => m.replace(/```json|```/g,'')).trim();
+    const result = JSON.parse(clean);
+    renderResults(result);
+    (result.top_patterns||[]).forEach(p => { allPatterns[p]=(allPatterns[p]||0)+1; });
+    sessionHistory.push({score:result.scores.overall});
+    renderPatterns();
+  } catch(err) {
+    console.error('Analysis error:', err);
+    document.getElementById('canvasHint').textContent = '⚠ ' + (err.message || 'Analysis failed — please try again.');
+    document.getElementById('canvasHint').style.color = 'var(--red)';
+  }
+
+  btn.disabled=false;
+  document.getElementById('btnIcon').className='';
+  document.getElementById('btnIcon').textContent='✦';
+  document.getElementById('btnLbl').textContent=' Re-analyze';
+}
+
+function renderResults(r) {
+  lastIssues = r.issues||[];
+  document.getElementById('viewToggle').style.display='flex';
+  switchView('highlight');
+  document.getElementById('resultsPane').classList.add('open');
+
+  const sc=r.scores;
+  document.getElementById('scoreCard').style.display='block';
+  document.getElementById('bigNum').textContent=sc.overall.toFixed(1);
+  document.getElementById('bigNum').style.color=scoreColor(sc.overall);
+  document.getElementById('scoreLbl').textContent=scoreLabel(sc.overall);
+  document.getElementById('scoreBar').style.width=(sc.overall*10)+'%';
+  document.getElementById('scoreBar').style.background=scoreColor(sc.overall);
+  document.getElementById('scoreGrid').innerHTML=[['grammar','Grammar'],['clarity','Clarity'],['style','Style'],['flow','Flow']].map(([k,l])=>`
+    <div class="score-cell">
+      <div class="score-n" style="color:${scoreColor(sc[k])}">${sc[k].toFixed(1)}</div>
+      <div class="score-d">${l}</div>
+      <div class="cell-bar"><div class="cell-fill" style="width:${sc[k]*10}%;background:${scoreColor(sc[k])}"></div></div>
+    </div>`).join('');
+
+  const issues=lastIssues;
+  document.getElementById('issuesCard').style.display='block';
+  document.getElementById('issueBadge').textContent=issues.length;
+  const tc={grammar:'bg-gram',punctuation:'bg-punct',clarity:'bg-clar',style:'bg-style',structure:'bg-struct'};
+  document.getElementById('issuesList').innerHTML=issues.map(iss=>`
+    <div class="issue-row">
+      <div class="issue-top"><span class="issue-tag ${tc[iss.type]||'bg-struct'}">${iss.type}</span><span class="issue-desc">${iss.description}</span></div>
+      ${iss.original?`<div class="issue-was">Was: <s>${iss.original}</s></div>`:''}
+      ${iss.fix?`<div class="issue-fix">→ ${iss.fix}</div>`:''}
+    </div>`).join('');
+
+  if (r.main_suggestion) {
+    document.getElementById('tipBox').style.display='block';
+    document.getElementById('tipText').textContent='💡 '+r.main_suggestion;
+  }
+  if (r.rewrite) {
+    document.getElementById('rewriteCard').style.display='block';
+    document.getElementById('rewriteBody').textContent=r.rewrite;
+  }
+
+  document.getElementById('insightsEmpty').style.display='none';
+  document.getElementById('insightsContent').style.display='block';
+  document.getElementById('feedbackText').textContent=r.feedback||'';
+  document.getElementById('styleText').textContent=r.style_advice||'';
+
+  if ((r.exercises||[]).length) {
+    document.getElementById('practiceEmpty').style.display='none';
+    document.getElementById('practiceContent').style.display='block';
+    const ac={grammar:'ex-gram',clarity:'ex-clarity',style:'ex-style',structure:'ex-struct'};
+    document.getElementById('practiceContent').innerHTML=
+      `<div class="psection-title" style="margin-bottom:12px">Tailored exercises</div>`+
+      r.exercises.map(ex=>`
+        <div class="exercise-item">
+          <div class="exercise-name">${ex.title}</div>
+          <div class="exercise-desc">${ex.description}</div>
+          <span class="exercise-area ${ac[ex.area]||'ex-struct'}">${ex.area}</span>
+        </div>`).join('');
+  }
+}
+
+function renderPatterns() {
+  const entries=Object.entries(allPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const max=entries[0]?.[1]||1;
+  const cols=['var(--red)','var(--amber)','var(--purple)','var(--accent)','var(--green)','var(--text2)'];
+  document.getElementById('patternsList').innerHTML=entries.length
+    ? entries.map(([p,n],i)=>`
+        <div class="pattern-row">
+          <div class="pattern-lbl">${p}</div>
+          <div class="pattern-bg"><div class="pattern-fg" style="width:${Math.round(n/max*100)}%;background:${cols[i%cols.length]}"></div></div>
+          <div class="pattern-n">${n}</div>
+        </div>`).join('')
+    : '<div style="font-size:13px;color:var(--text3)">Analyze more pieces to see patterns.</div>';
+
+  if (sessionHistory.length>1) {
+    document.getElementById('trendSection').style.display='block';
+    document.getElementById('trendList').innerHTML=sessionHistory.slice(-5).reverse().map((h,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text3);min-width:52px">${i===0?'Latest':'Earlier'}</div>
+        <div class="pattern-bg" style="flex:1"><div class="pattern-fg" style="width:${h.score*10}%;background:${scoreColor(h.score)}"></div></div>
+        <div style="font-size:13px;font-weight:700;color:${scoreColor(h.score)}">${h.score.toFixed(1)}</div>
+      </div>`).join('');
+  }
+}
+
+function copyRewrite() {
+  navigator.clipboard.writeText(document.getElementById('rewriteBody').textContent).then(()=>{
+    const b=event.target; b.textContent='Copied ✓';
+    setTimeout(()=>b.textContent='Copy rewrite →',1600);
+  });
+}
+
+/* ── Init ── */
+updateKeyBadge();
+if (!getKey()) showModal();
+onType();
+
+</script>
+</body>
+</html>
